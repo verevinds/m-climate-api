@@ -1,0 +1,66 @@
+
+version: '3'
+
+networks:
+  default:
+    external:
+      name: network
+
+services:
+  nginx-proxy:
+    container_name: nginx-proxy
+    image: jwilder/nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    links:
+      - api
+
+  nginx-proxy-letsencrypt:
+    container_name: nginx-proxy-letsencrypt
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+
+  api:
+    restart: always
+    expose:
+      - 80
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    volumes:
+      - certs:/etc/nginx/certs
+      - ./:/app
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    environment:
+      - VIRTUAL_HOST=api.m-climate.site
+      - LETSENCRYPT_HOST=api.m-climate.site
+      - LETSENCRYPT_EMAIL=admin@api.m-climate.site
+
+  mongo:
+    image: mongo
+    restart: on-failure
+    volumes:
+      - apiDB:/data/db
+
+volumes:
+  apiDB:
+  certs:
+  vhost.d:
+  html:
+
+
